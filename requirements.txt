@@ -1,0 +1,23 @@
+# UI Libraries
+CustomTkinter
+
+# macOS integration (for app tracking)
+pyobjc-core
+pyobjc-framework-Cocoa
+pyobjc-framework-Quartz
+
+# LLM Interaction (Ollama)
+ollama
+
+# Database
+SQLAlchemy
+
+# Plotting
+matplotlib
+
+# Other utilities
+# psutil (for system information, might be useful)
+Pillow
+
+# Packaging
+PyInstaller 
