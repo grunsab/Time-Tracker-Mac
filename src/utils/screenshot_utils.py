@@ -1,5 +1,6 @@
 import os
 import tempfile
+from typing import Optional # Add Optional for type hinting
 from AppKit import NSWorkspace, NSBitmapImageRep, NSPNGFileType
 from Quartz import CGWindowListCopyWindowInfo, kCGWindowListOptionOnScreenOnly, kCGWindowListExcludeDesktopElements, kCGNullWindowID, CGWindowListCreateImage, CGRectMake, CGRectNull, CGMainDisplayID, CGDisplayPixelsWide, CGDisplayPixelsHigh
 from Quartz import kCGWindowImageDefault # Explicitly import if not covered by above
@@ -13,12 +14,12 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 SCREENSHOT_TEMP_DIR = os.path.join(PROJECT_ROOT, ".cache", "screenshots")
 os.makedirs(SCREENSHOT_TEMP_DIR, exist_ok=True)
 
-def capture_active_window_to_temp_file() -> str | None:
+def capture_active_window_to_temp_file() -> Optional[str]:
     """
     Captures the active application's main window on macOS and saves it to a temporary PNG file.
 
     Returns:
-        str: The path to the saved screenshot file if successful, None otherwise.
+        Optional[str]: The path to the saved screenshot file if successful, None otherwise.
     """
     workspace = NSWorkspace.sharedWorkspace()
     active_app = workspace.frontmostApplication()

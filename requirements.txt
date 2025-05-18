@@ -5,9 +5,10 @@ CustomTkinter
 pyobjc-core
 pyobjc-framework-Cocoa
 pyobjc-framework-Quartz
+pyobjc-framework-ScriptingBridge
 
-# LLM Interaction (Ollama)
-ollama
+# LLM Interaction
+llama-cpp-python
 
 # Database
 SQLAlchemy
@@ -17,7 +18,7 @@ matplotlib
 
 # Other utilities
 # psutil (for system information, might be useful)
-Pillow
+Pillow # Pillow is needed for creating dummy images in tests and potentially for other image ops
 
 # Packaging
 PyInstaller 
