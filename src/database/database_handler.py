@@ -307,6 +307,27 @@ def get_aggregated_activity_by_app(project_id: int, start_date: datetime.datetim
     finally:
         next(db_session_gen, None)
 
+def get_activity_logs_for_day(target_date: datetime.date, project_id: int = None):
+    db_session_gen = get_db()
+    db = next(db_session_gen)
+    try:
+        start_datetime = datetime.datetime.combine(target_date, datetime.time.min)
+        end_datetime = datetime.datetime.combine(target_date, datetime.time.max)
+
+        query = db.query(ActivityLog).filter(
+            ActivityLog.timestamp >= start_datetime,
+            ActivityLog.timestamp <= end_datetime
+        )
+        if project_id:
+            query = query.filter(ActivityLog.project_id == project_id)
+        
+        return query.order_by(ActivityLog.timestamp.asc()).all()
+    except SQLAlchemyError as e:
+        print(f"Error fetching activity logs for day {target_date}: {e}")
+        return []
+    finally:
+        next(db_session_gen, None)
+
 # Example usage (for testing this module directly)
 if __name__ == "__main__":
     print("Initializing DB for direct test...")

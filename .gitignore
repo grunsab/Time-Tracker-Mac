@@ -96,6 +96,14 @@ venv/
 ENV/
 env/
 ENV/
+#/
+3.9/
+Or/
+Python/
+executable/
+preferred/
+your/
+
 
 # Spyder project settings
 .spyderproject
@@ -119,4 +127,6 @@ dmypy.json
 # poetry.lock 
 
 
+
+llama.cpp/
 .data/productivity_tracker.db
