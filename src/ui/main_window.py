@@ -419,6 +419,8 @@ class App(ctk.CTk):
         self.unproductive_apps = set()  # Track apps marked as unproductive
         self.nudge_history = []  # Track nudge effectiveness
         self.current_nudge_popup = None  # Track current popup
+        self.last_nudge_check_time = 0  # Track last nudge check
+        self.nudge_check_interval = 15  # Check for nudges every 15 seconds
 
         # --- Nudge UI Elements ---
         self.nudge_frame = ctk.CTkFrame(self, corner_radius=self.CORNER_RADIUS, border_width=self.FRAME_BORDER_WIDTH)
@@ -927,10 +929,13 @@ class App(ctk.CTk):
             self.active_window_label.configure(text=f"Window: {window_title}")
             self.detailed_context_label.configure(text=f"Context: {detailed_context if detailed_context not in [None, 'N/A'] else '...'}")
         
-        # Check if we should show a nudge
-        if self._should_nudge(app_name, window_title, detailed_context):
-            print(f"Should show nudge for app: {app_name}")
-            self._show_nudge(app_name, window_title, detailed_context)
+        # Check if we should show a nudge (only every 15 seconds)
+        current_time = time.time()
+        if current_time - self.last_nudge_check_time >= self.nudge_check_interval:
+            if self._should_nudge(app_name, window_title, detailed_context):
+                print(f"Should show nudge for app: {app_name}")
+                self._show_nudge(app_name, window_title, detailed_context)
+            self.last_nudge_check_time = current_time
         
         # --- Activity Logging Logic ---
         goal_id_to_log = self.globally_active_goal_id
