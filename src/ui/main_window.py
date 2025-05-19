@@ -23,7 +23,7 @@ class NudgePopup(ctk.CTkToplevel):
         
         # Configure popup window
         self.title("Productivity Nudge")
-        self.geometry("400x200")
+        self.geometry("600x300")
         self.resizable(False, False)
         
         # Make it stay on top
@@ -45,11 +45,11 @@ class NudgePopup(ctk.CTkToplevel):
         self.message_label = ctk.CTkLabel(
             self.frame,
             text=message,
-            wraplength=350,
+            wraplength=540,
             justify="left",
             font=ctk.CTkFont(size=14)
         )
-        self.message_label.pack(pady=20, padx=20, fill="x")
+        self.message_label.pack(pady=20, padx=20, fill="both", expand=True)
         
         # Buttons frame
         self.button_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
@@ -413,9 +413,9 @@ class App(ctk.CTk):
         # --- Nudge System Components ---
         self.nudge_enabled = True
         self.last_nudge_times = {}  # app_name -> last nudge timestamp
-        self.nudge_cooldown = 3600  # 1 hour in seconds
+        self.nudge_cooldown = 60  # 1 minutes in seconds
         self.nudge_snooze_until = None
-        self.nudge_snooze_duration = 1800  # 30 minutes in seconds
+        self.nudge_snooze_duration = 180  # 5 minutes in seconds
         self.unproductive_apps = set()  # Track apps marked as unproductive
         self.nudge_history = []  # Track nudge effectiveness
         self.current_nudge_popup = None  # Track current popup
