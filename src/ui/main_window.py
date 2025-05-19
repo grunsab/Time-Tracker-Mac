@@ -58,7 +58,7 @@ class NudgePopup(ctk.CTkToplevel):
         # Snooze button
         self.snooze_button = ctk.CTkButton(
             self.button_frame,
-            text="Snooze 30m",
+            text="Snooze 5m",
             command=lambda: self._handle_snooze(on_snooze),
             width=120
         )
@@ -1467,7 +1467,7 @@ class App(ctk.CTk):
             self.current_nudge_popup = None
 
     def _snooze_nudge(self):
-        """Snooze the current nudge for 30 minutes."""
+        """Snooze the current nudge for 5 minutes."""
         self.nudge_snooze_until = time.time() + self.nudge_snooze_duration
         if self.current_nudge_popup:
             self.current_nudge_popup.destroy()
