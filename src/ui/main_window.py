@@ -241,7 +241,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(self.feedback_controls_frame, text="Freq:").pack(side="left", padx=(self.PAD_X,self.PAD_X/4))
         self.feedback_frequency_options = ["Off", "15s", "30s", "1m", "2m", "5m"]
         self.feedback_frequency_map = {"Off": 0, "15s": 15, "30s": 30, "1m": 60, "2m": 120, "5m": 300}
-        self.feedback_frequency_var = ctk.StringVar(value="30s")
+        self.feedback_frequency_var = ctk.StringVar(value="Off")  # Changed from "30s" to "Off"
         self.feedback_frequency_menu = ctk.CTkOptionMenu(self.feedback_controls_frame, 
                                                        values=self.feedback_frequency_options, 
                                                        variable=self.feedback_frequency_var,
@@ -411,7 +411,7 @@ class App(ctk.CTk):
         self._app_handle_screenshot_toggle() # Call to set initial button state
 
         # --- Nudge System Components ---
-        self.nudge_enabled = True
+        self.nudge_enabled = True  # Keep this as True for default enabled
         self.last_nudge_times = {}  # app_name -> last nudge timestamp
         self.nudge_cooldown = 60  # 1 minutes in seconds
         self.nudge_snooze_until = None
