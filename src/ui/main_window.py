@@ -17,6 +17,80 @@ import threading
 import time
 import os
 
+class NudgePopup(ctk.CTkToplevel):
+    def __init__(self, parent, message: str, on_snooze=None, on_dismiss=None):
+        super().__init__(parent)
+        
+        # Configure popup window
+        self.title("Productivity Nudge")
+        self.geometry("600x300")
+        self.resizable(False, False)
+        
+        # Make it stay on top
+        self.attributes('-topmost', True)
+        
+        # Center the popup on screen
+        self.update_idletasks()
+        width = self.winfo_width()
+        height = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+        
+        # Create main frame
+        self.frame = ctk.CTkFrame(self)
+        self.frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Message label
+        self.message_label = ctk.CTkLabel(
+            self.frame,
+            text=message,
+            wraplength=540,
+            justify="left",
+            font=ctk.CTkFont(size=14)
+        )
+        self.message_label.pack(pady=20, padx=20, fill="both", expand=True)
+        
+        # Buttons frame
+        self.button_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
+        self.button_frame.pack(pady=10, padx=20, fill="x")
+        
+        # Snooze button
+        self.snooze_button = ctk.CTkButton(
+            self.button_frame,
+            text="Snooze 5m",
+            command=lambda: self._handle_snooze(on_snooze),
+            width=120
+        )
+        self.snooze_button.pack(side="right", padx=5)
+        
+        # Dismiss button
+        self.dismiss_button = ctk.CTkButton(
+            self.button_frame,
+            text="Dismiss",
+            command=lambda: self._handle_dismiss(on_dismiss),
+            width=120
+        )
+        self.dismiss_button.pack(side="right", padx=5)
+        
+        # Bind escape key to dismiss
+        self.bind('<Escape>', lambda e: self._handle_dismiss(on_dismiss))
+        
+        # Ensure the popup is visible
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+        
+    def _handle_snooze(self, callback):
+        if callback:
+            callback()
+        self.destroy()
+        
+    def _handle_dismiss(self, callback):
+        if callback:
+            callback()
+        self.destroy()
+
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -167,7 +241,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(self.feedback_controls_frame, text="Freq:").pack(side="left", padx=(self.PAD_X,self.PAD_X/4))
         self.feedback_frequency_options = ["Off", "15s", "30s", "1m", "2m", "5m"]
         self.feedback_frequency_map = {"Off": 0, "15s": 15, "30s": 30, "1m": 60, "2m": 120, "5m": 300}
-        self.feedback_frequency_var = ctk.StringVar(value="30s")
+        self.feedback_frequency_var = ctk.StringVar(value="Off")  # Changed from "30s" to "Off"
         self.feedback_frequency_menu = ctk.CTkOptionMenu(self.feedback_controls_frame, 
                                                        values=self.feedback_frequency_options, 
                                                        variable=self.feedback_frequency_var,
@@ -335,6 +409,47 @@ class App(ctk.CTk):
         # Initial population of the goals tab
         self.refresh_goals_tab_display()
         self._app_handle_screenshot_toggle() # Call to set initial button state
+
+        # --- Nudge System Components ---
+        self.nudge_enabled = True  # Keep this as True for default enabled
+        self.last_nudge_times = {}  # app_name -> last nudge timestamp
+        self.nudge_cooldown = 60  # 1 minutes in seconds
+        self.nudge_snooze_until = None
+        self.nudge_snooze_duration = 180  # 5 minutes in seconds
+        self.unproductive_apps = set()  # Track apps marked as unproductive
+        self.nudge_history = []  # Track nudge effectiveness
+        self.current_nudge_popup = None  # Track current popup
+        self.last_nudge_check_time = 0  # Track last nudge check
+        self.nudge_check_interval = 15  # Check for nudges every 15 seconds
+
+        # --- Nudge UI Elements ---
+        self.nudge_frame = ctk.CTkFrame(self, corner_radius=self.CORNER_RADIUS, border_width=self.FRAME_BORDER_WIDTH)
+        self.nudge_frame.pack(pady=self.PAD_Y, padx=self.PAD_X, fill="x")
+        
+        self.nudge_status_label = ctk.CTkLabel(self.nudge_frame, text="Nudge System: Active", font=ctk.CTkFont(size=12))
+        self.nudge_status_label.pack(side="left", padx=self.PAD_X)
+        
+        self.nudge_toggle = ctk.CTkSwitch(self.nudge_frame, text="Enable Nudges", command=self._toggle_nudge_system)
+        self.nudge_toggle.select()  # Default to enabled
+        self.nudge_toggle.pack(side="right", padx=self.PAD_X)
+        
+        self.nudge_message_label = ctk.CTkLabel(self.nudge_frame, text="", wraplength=700, justify="left")
+        self.nudge_message_label.pack(fill="x", padx=self.PAD_X, pady=self.PAD_Y/2)
+        
+        self.nudge_controls_frame = ctk.CTkFrame(self.nudge_frame, fg_color="transparent")
+        self.nudge_controls_frame.pack(fill="x", padx=self.PAD_X)
+        
+        self.snooze_button = ctk.CTkButton(self.nudge_controls_frame, text="Snooze 30m", 
+                                          command=self._snooze_nudge,
+                                          width=100,
+                                          corner_radius=self.CORNER_RADIUS)
+        self.snooze_button.pack(side="right", padx=self.PAD_X)
+        
+        self.dismiss_button = ctk.CTkButton(self.nudge_controls_frame, text="Dismiss", 
+                                           command=self._dismiss_nudge,
+                                           width=100,
+                                           corner_radius=self.CORNER_RADIUS)
+        self.dismiss_button.pack(side="right", padx=self.PAD_X)
 
     def set_viz_date_to_today(self):
         today_str = dt_date.today().strftime("%Y-%m-%d")
@@ -804,46 +919,50 @@ class App(ctk.CTk):
             window_title = "N/A"
             detailed_context = "N/A"
 
-        # --- Update UI Labels (now safe as this runs in main thread via self.after) ---
+        # --- Update UI Labels ---
         self.last_app_name_for_ui = app_name
         self.last_window_title_for_ui = window_title
         self.last_detailed_context_for_ui = detailed_context
 
-        if hasattr(self, 'active_app_label'): # Check if UI element exists
+        if hasattr(self, 'active_app_label'):
             self.active_app_label.configure(text=f"App: {app_name}")
             self.active_window_label.configure(text=f"Window: {window_title}")
             self.detailed_context_label.configure(text=f"Context: {detailed_context if detailed_context not in [None, 'N/A'] else '...'}")
         
-        # --- Activity Logging Logic (Simplified for clarity, can be expanded) ---
-        # Log if key info changes or if it's the first log for a new active goal
+        # Check if we should show a nudge (only every 15 seconds)
+        current_time = time.time()
+        if current_time - self.last_nudge_check_time >= self.nudge_check_interval:
+            if self._should_nudge(app_name, window_title, detailed_context):
+                print(f"Should show nudge for app: {app_name}")
+                self._show_nudge(app_name, window_title, detailed_context)
+            self.last_nudge_check_time = current_time
+        
+        # --- Activity Logging Logic ---
         goal_id_to_log = self.globally_active_goal_id
         
         # Determine if a log should occur
         should_log = False
-        if goal_id_to_log is not None: # Only log if there's an active goal
+        if goal_id_to_log is not None:
             if (app_name != self.last_logged_app_name or
                 window_title != self.last_logged_window_title or
                 detailed_context != self.last_logged_detailed_context or
                 goal_id_to_log != self.last_logged_goal_id):
                 
-                # Avoid logging "None" or "N/A" app names unless it's a change from something else
                 if not (app_name in ["None", "N/A"] and self.last_logged_app_name in ["None", "N/A"]):
                     should_log = True
         
         if should_log:
-            project_id_to_log = self.globally_active_goal_project_id # Fetch this along with active goal
+            project_id_to_log = self.globally_active_goal_project_id
 
-            # Ensure project_id_to_log is valid if goal_id_to_log is not None
             if goal_id_to_log and project_id_to_log is None:
-                # Attempt to fetch project_id if it's missing for the active goal
                 active_goal_obj = get_goal_by_id(goal_id_to_log)
                 if active_goal_obj:
                     project_id_to_log = active_goal_obj.project_id
             
-            if goal_id_to_log and project_id_to_log: # Ensure both are valid before logging
+            if goal_id_to_log and project_id_to_log:
                 add_activity_log(
                     goal_id=goal_id_to_log,
-                    project_id=project_id_to_log, # Make sure this is available
+                    project_id=project_id_to_log,
                     app_name=app_name,
                     window_title=window_title,
                     detailed_context=detailed_context
@@ -858,31 +977,27 @@ class App(ctk.CTk):
             self.last_logged_goal_id = goal_id_to_log
         
         # Reschedule this method to run again
-        self.after(1000, self.update_active_app_display_and_log_activity) # 1-second interval
+        self.after(1000, self.update_active_app_display_and_log_activity)
 
     def llm_interaction_loop(self):
         # Initial status update
         try:
-            if not self.llm_handler or not self.llm_handler._initialized or not self.llm_handler.llm: # check for llm object
+            if not self.llm_handler or not self.llm_handler._initialized or not self.llm_handler.llm:
                 self.after(0, lambda: self.llm_status_label.configure(text="LLM Status: Initializing..."))
-                self.initialize_llm_handler_and_loop() # Attempt to re-initialize if not ready
-                return # Exit this iteration, will be recalled by initialize_llm_handler_and_loop
+                self.initialize_llm_handler_and_loop()
+                return
             else:
-                # Update status if handler is now ready (might have been initialized by the above call)
                 self.after(0, lambda: self.llm_status_label.configure(text=f"LLM Status: Ready (Model: {self.llm_handler.text_model_name})"))
         except Exception as e:
             self.after(0, lambda: self.llm_status_label.configure(text=f"LLM Status: Error - {str(e)[:100]}"))
             print(f"LLM handler check failed in loop: {e}")
-            # Optionally, schedule a retry for initialization after a delay
-            time.sleep(5) # Wait before next check if LLM init fails
-            if self.tracking_active: # Reschedule this loop
+            time.sleep(5)
+            if self.tracking_active:
                 self.llm_thread = threading.Thread(target=self.llm_interaction_loop, daemon=True)
                 self.llm_thread.start()
             return
 
-        loop_interval = 1 # Base check interval (seconds)
-
-        # self.screenshot_analysis_status_label is already created in __init__
+        loop_interval = 1
 
         while self.tracking_active:
             current_time = time.time()
@@ -923,6 +1038,15 @@ class App(ctk.CTk):
                 time.sleep(loop_interval)
                 continue
 
+            # Skip LLM processing if both context and window title are empty/N/A
+            if (not self.last_detailed_context_for_ui or self.last_detailed_context_for_ui == "N/A") and \
+               (not self.last_window_title_for_ui or self.last_window_title_for_ui == "N/A"):
+                if self.feedback_label.cget("text") != "AI Feedback: Waiting for active window content...":
+                    self.after(0, lambda: self.feedback_label.configure(text="AI Feedback: Waiting for active window content..."))
+                self.last_feedback_generation_time = current_time
+                time.sleep(loop_interval)
+                continue
+
             ready_for_action = (current_time - self.last_feedback_generation_time) >= self.current_feedback_frequency_seconds
 
             if ready_for_action:
@@ -936,11 +1060,11 @@ class App(ctk.CTk):
                     if hasattr(self, 'last_screenshot_analysis_result') and self.last_screenshot_analysis_result is not None:
                         print("LLM Loop: Using manually triggered screenshot analysis result.")
                         current_visual_analysis_result = self.last_screenshot_analysis_result
-                        self.last_screenshot_analysis_result = None # Clear after use
+                        self.last_screenshot_analysis_result = None
                         processed_manual_screenshot = True
                         status_text = f"Screenshot Analysis: Used manual result ({current_visual_analysis_result[:60]}{'...' if len(current_visual_analysis_result) > 60 else ''})."
                         self.after(0, lambda text=status_text: self.screenshot_analysis_status_label.configure(text=text))
-                    elif self.current_feedback_frequency_seconds > 0: # Auto-analysis only if feedback is on
+                    elif self.current_feedback_frequency_seconds > 0:
                         self.after(0, lambda: self.screenshot_analysis_status_label.configure(text="Screenshot Analysis (Auto): Capturing..."))
                         screenshot_path_auto = None
                         try:
@@ -966,13 +1090,12 @@ class App(ctk.CTk):
                                     print(f"Cleaned up auto temp screenshot: {screenshot_path_auto}")
                                 except OSError as e_del_auto:
                                     print(f"Error deleting auto temp screenshot {screenshot_path_auto}: {e_del_auto}")
-                else: # Screenshot analysis is disabled
-                    if not processed_manual_screenshot: # Only update status if not already handled by manual trigger case
+                else:
+                    if not processed_manual_screenshot:
                         current_status = self.screenshot_analysis_status_label.cget("text")
-                        # Avoid overwriting active states like "Capturing..." if user toggles off mid-process (though button disable should prevent this)
                         if current_status != "Screenshot Analysis: Disabled by user.":
                              self.after(0, lambda: self.screenshot_analysis_status_label.configure(text="Screenshot Analysis: Disabled by user."))
-                    current_visual_analysis_result = None # Ensure it's None
+                    current_visual_analysis_result = None
                 
                 try:
                     final_feedback_text = self.llm_handler.generate_feedback(
@@ -1333,6 +1456,124 @@ class App(ctk.CTk):
         
         self.fig.tight_layout() # Adjust layout to prevent labels from being cut off
         self.canvas.draw()
+
+    def _toggle_nudge_system(self):
+        """Toggle the nudge system on/off."""
+        self.nudge_enabled = self.nudge_toggle.get()
+        status_text = "Active" if self.nudge_enabled else "Disabled"
+        self.nudge_status_label.configure(text=f"Nudge System: {status_text}")
+        if not self.nudge_enabled and self.current_nudge_popup:
+            self.current_nudge_popup.destroy()
+            self.current_nudge_popup = None
+
+    def _snooze_nudge(self):
+        """Snooze the current nudge for 5 minutes."""
+        self.nudge_snooze_until = time.time() + self.nudge_snooze_duration
+        if self.current_nudge_popup:
+            self.current_nudge_popup.destroy()
+            self.current_nudge_popup = None
+        self.nudge_status_label.configure(text=f"Nudge System: Snoozed until {time.strftime('%H:%M', time.localtime(self.nudge_snooze_until))}")
+
+    def _dismiss_nudge(self):
+        """Dismiss the current nudge."""
+        if self.current_nudge_popup:
+            self.current_nudge_popup.destroy()
+            self.current_nudge_popup = None
+        self.nudge_status_label.configure(text="Nudge System: Active")
+
+    def _clear_nudge_message(self):
+        """Clear the current nudge message."""
+        self.nudge_message_label.configure(text="")
+        self.snooze_button.pack_forget()
+        self.dismiss_button.pack_forget()
+
+    def _should_nudge(self, app_name: str, window_title: str, detailed_context: str) -> bool:
+        """Determine if a nudge should be shown for the current activity."""
+        # Skip if both context and window title are empty/N/A
+        if (not detailed_context or detailed_context == "N/A") and (not window_title or window_title == "N/A"):
+            print("Skipping nudge check - empty context and window title")
+            return False
+
+        if not self.nudge_enabled:
+            print("Nudge system is disabled")
+            return False
+            
+        if self.nudge_snooze_until and time.time() < self.nudge_snooze_until:
+            print(f"Nudge is snoozed until {time.strftime('%H:%M', time.localtime(self.nudge_snooze_until))}")
+            return False
+            
+        # Check cooldown for this app
+        last_nudge = self.last_nudge_times.get(app_name, 0)
+        if time.time() - last_nudge < self.nudge_cooldown:
+            print(f"App {app_name} is in cooldown period")
+            return False
+            
+        # Use LLM to analyze if the activity is unproductive
+        try:
+            if self.llm_handler and self.llm_handler._initialized:
+                print(f"Analyzing productivity for app: {app_name}, window: {window_title}")
+                is_unproductive = self.llm_handler.analyze_productivity(
+                    app_name=app_name,
+                    window_title=window_title,
+                    detailed_context=detailed_context,
+                    active_goal=self.globally_active_goal_text
+                )
+                print(f"Productivity analysis result: {is_unproductive}")
+                return is_unproductive
+        except Exception as e:
+            print(f"Error analyzing productivity: {e}")
+            import traceback
+            traceback.print_exc()
+            
+        return False
+
+    def _show_nudge(self, app_name: str, window_title: str, detailed_context: str):
+        """Show a nudge message for unproductive activity."""
+        try:
+            if self.llm_handler and self.llm_handler._initialized:
+                print(f"Generating nudge message for app: {app_name}, window: {window_title}")
+                nudge_message = self.llm_handler.generate_nudge_message(
+                    app_name=app_name,
+                    window_title=window_title,
+                    detailed_context=detailed_context,
+                    active_goal=self.globally_active_goal_text
+                )
+                
+                if nudge_message:
+                    print(f"Generated nudge message: {nudge_message}")
+                    # Close any existing popup
+                    if self.current_nudge_popup:
+                        print("Closing existing popup")
+                        self.current_nudge_popup.destroy()
+                    
+                    # Create and show new popup
+                    print("Creating new nudge popup")
+                    self.current_nudge_popup = NudgePopup(
+                        self,
+                        nudge_message,
+                        on_snooze=self._snooze_nudge,
+                        on_dismiss=self._dismiss_nudge
+                    )
+                    # Ensure the popup is visible and on top
+                    self.current_nudge_popup.lift()
+                    self.current_nudge_popup.focus_force()
+                    
+                    self.last_nudge_times[app_name] = time.time()
+                    
+                    # Log nudge for analytics
+                    self.nudge_history.append({
+                        'timestamp': time.time(),
+                        'app_name': app_name,
+                        'window_title': window_title,
+                        'message': nudge_message,
+                        'goal': self.globally_active_goal_text
+                    })
+                else:
+                    print("No nudge message generated")
+        except Exception as e:
+            print(f"Error generating nudge message: {e}")
+            import traceback
+            traceback.print_exc()
 
 if __name__ == '__main__':
     app = App()

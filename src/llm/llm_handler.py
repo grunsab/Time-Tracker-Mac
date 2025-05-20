@@ -284,6 +284,79 @@ class LLMHandler:
             print(f"Error during Llama CPP feedback generation: {e}")
             return f"Error generating feedback from Llama CPP: {e}"
 
+    def analyze_productivity(self, app_name: str, window_title: str, detailed_context: str, active_goal: str) -> bool:
+        """
+        Analyzes if the current activity is productive towards the user's goal.
+        
+        Args:
+            app_name (str): Name of the active application
+            window_title (str): Title of the active window
+            detailed_context (str): Additional context (URL, file path, etc.)
+            active_goal (str): The user's current goal
+            
+        Returns:
+            bool: True if the activity is unproductive, False if productive or cannot determine
+        """
+        if not self.llm or not self._initialized:
+            return False
+            
+        context_str = f"The user is currently using the application '{app_name}'.\nThe active window title is '{window_title}'."
+        if detailed_context and detailed_context != "N/A":
+            context_str += f"\nThe specific context is: '{detailed_context}'."
+            
+        prompt = f"<start_of_turn>user\n{context_str}\nThe user's current goal is: '{active_goal}'.\n\nBased on this information, determine if the user's current activity is productive towards their goal. Consider:\n1. Is the application typically used for work/productivity?\n2. Does the window title/content suggest productive work?\n3. Is the activity aligned with the stated goal?\n\nRespond with ONLY 'UNPRODUCTIVE' if the activity is clearly not helping achieve the goal, or 'PRODUCTIVE' if it is. If uncertain, respond with 'UNCERTAIN'.<end_of_turn>\n<start_of_turn>model\n"
+        
+        try:
+            response = self.llm(
+                prompt,
+                max_tokens=50,
+                stop=["<end_of_turn>", "<start_of_turn>user"],
+                echo=False
+            )
+            
+            result = response['choices'][0]['text'].strip().upper()
+            return "UNPRODUCTIVE" in result
+            
+        except Exception as e:
+            print(f"Error analyzing productivity: {e}")
+            return False
+
+    def generate_nudge_message(self, app_name: str, window_title: str, detailed_context: str, active_goal: str) -> str:
+        """
+        Generates a personalized nudge message to help the user refocus on their goal.
+        
+        Args:
+            app_name (str): Name of the active application
+            window_title (str): Title of the active window
+            detailed_context (str): Additional context (URL, file path, etc.)
+            active_goal (str): The user's current goal
+            
+        Returns:
+            str: A personalized nudge message
+        """
+        if not self.llm or not self._initialized:
+            return "Unable to generate nudge message - LLM not initialized."
+            
+        context_str = f"The user is currently using the application '{app_name}'.\nThe active window title is '{window_title}'."
+        if detailed_context and detailed_context != "N/A":
+            context_str += f"\nThe specific context is: '{detailed_context}'."
+            
+        prompt = f"<start_of_turn>user\n{context_str}\nThe user's current goal is: '{active_goal}'.\n\nGenerate a brief, encouraging message to help the user refocus on their goal. The message should:\n1. Be gentle and non-judgmental\n2. Acknowledge the current activity\n3. Remind them of their goal\n4. Suggest a specific action to get back on track\n5. Be concise (2-3 sentences maximum)\n\nFormat the response as a friendly, supportive message.<end_of_turn>\n<start_of_turn>model\n"
+        
+        try:
+            response = self.llm(
+                prompt,
+                max_tokens=150,
+                stop=["<end_of_turn>", "<start_of_turn>user"],
+                echo=False
+            )
+            
+            return response['choices'][0]['text'].strip()
+            
+        except Exception as e:
+            print(f"Error generating nudge message: {e}")
+            return "I notice you might be getting distracted. Would you like to take a moment to refocus on your goal?"
+
 # Singleton instance getter
 def get_llm_handler():
     return LLMHandler()
