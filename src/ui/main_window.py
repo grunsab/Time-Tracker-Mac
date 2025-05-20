@@ -10,7 +10,7 @@ from src.llm.llm_handler import get_llm_handler
 from src.database.database_handler import (
     init_db, add_project, get_all_projects, get_project_by_id,
     add_goal, get_goals_for_project, set_active_goal, get_active_goal, complete_goal, Goal, get_goal_by_id,
-    add_activity_log, get_aggregated_activity_by_app, get_activity_logs_for_day # Import new function
+    add_activity_log, get_aggregated_activity_by_app, get_activity_logs_for_day, update_goal_time # Import new function
 )
 from src.utils.screenshot_utils import capture_active_window_to_temp_file # Import for screenshot
 import threading
@@ -172,6 +172,13 @@ class App(ctk.CTk):
         self.new_goal_entry.pack(pady=self.PAD_Y/2, padx=self.PAD_X)
         self.add_goal_button = ctk.CTkButton(self.project_controls_frame, text="Add Goal to Project", command=self.add_goal_action, corner_radius=self.CORNER_RADIUS, font=ctk.CTkFont(weight="bold")) # Bold text
         self.add_goal_button.pack(pady=self.PAD_Y, padx=self.PAD_X, ipady=self.PAD_Y/4) # Added Y padding
+        
+        # Add target time entry field
+        self.target_time_entry = ctk.CTkEntry(self.project_controls_frame, 
+                                            placeholder_text="Target time (minutes)", 
+                                            width=220, 
+                                            corner_radius=self.CORNER_RADIUS)
+        self.target_time_entry.pack(pady=self.PAD_Y/2, padx=self.PAD_X)
         
         # --- Dashboard: Right - Goals List for Selected Project ---
         self.goals_display_frame = ctk.CTkFrame(self.dashboard_content_frame, corner_radius=self.CORNER_RADIUS, border_width=self.FRAME_BORDER_WIDTH)
@@ -451,6 +458,10 @@ class App(ctk.CTk):
                                            corner_radius=self.CORNER_RADIUS)
         self.dismiss_button.pack(side="right", padx=self.PAD_X)
 
+        # Add time tracking variables
+        self.last_time_update = None
+        self.current_goal_start_time = None
+
     def set_viz_date_to_today(self):
         today_str = dt_date.today().strftime("%Y-%m-%d")
         self.viz_date_entry.delete(0, ctk.END)
@@ -719,14 +730,17 @@ class App(ctk.CTk):
         print(f"Attempting to set global active goal ID: {goal_id}")
         updated_goal = set_active_goal(goal_id)
         if updated_goal:
+            # Reset time tracking for the new active goal
+            self.current_goal_start_time = dt_datetime.now()
+            self.last_time_update = dt_datetime.now()
+            
             self.load_and_display_globally_active_goal()
-            # Refresh the goals list for the current project on dashboard tab
-            if self.current_project_id and self.current_project_id == updated_goal.project_id: # only if the active goal belongs to current project
+            if self.current_project_id and self.current_project_id == updated_goal.project_id:
                 self.load_goals_for_project(self.current_project_id)
-            elif self.current_project_id: # if it belongs to another project, just refresh current one to remove old [ACTIVE] tag
+            elif self.current_project_id:
                 self.load_goals_for_project(self.current_project_id)
 
-            self.refresh_goals_tab_display() # Refresh the goals tab display
+            self.refresh_goals_tab_display()
         else:
             messagebox.showerror("Error", "Could not set active goal. It might be completed or an error occurred.")
 
@@ -801,8 +815,13 @@ class App(ctk.CTk):
                                       border_color=("#D0D0D0", "#3A3A3A"))
             goal_frame.pack(fill="x", pady=(self.PAD_Y/3,0), padx=self.PAD_X/3)
 
+            # Add time tracking info to status
+            time_info = ""
+            if goal_obj.target_minutes:
+                time_info = f"\nTime: {goal_obj.time_spent_minutes}/{goal_obj.target_minutes} minutes"
+            
             status = "Completed" if goal_obj.completed_at else "Pending"
-            goal_text_display = f"{goal_obj.text} (Status: {status})"
+            goal_text_display = f"{goal_obj.text} (Status: {status}){time_info}"
             if goal_obj.id == self.globally_active_goal_id:
                 goal_text_display += " [ACTIVE FEEDBACK]"
             
@@ -864,11 +883,25 @@ class App(ctk.CTk):
             messagebox.showwarning("Project Archived", f"Project '{project.name}' is archived. Cannot add new goals.")
             return
 
-        new_g = add_goal(goal_text, self.current_project_id)
+        # Get target time from entry if provided
+        target_minutes = None
+        try:
+            target_time = self.target_time_entry.get().strip()
+            if target_time:
+                target_minutes = int(target_time)
+                if target_minutes <= 0:
+                    messagebox.showwarning("Input Error", "Target time must be greater than 0 minutes.")
+                    return
+        except ValueError:
+            messagebox.showwarning("Input Error", "Target time must be a valid number of minutes.")
+            return
+
+        new_g = add_goal(goal_text, self.current_project_id, target_minutes)
         if new_g:
             self.new_goal_entry.delete(0, ctk.END)
-            self.load_goals_for_project(self.current_project_id) # Refresh dashboard list
-            self.refresh_goals_tab_display() # Refresh goals tab as well
+            self.target_time_entry.delete(0, ctk.END)
+            self.load_goals_for_project(self.current_project_id)
+            self.refresh_goals_tab_display()
             messagebox.showinfo("Success", f"Goal '{new_g.text}' added to current project.")
         else:
             messagebox.showerror("Error", "Failed to add goal. Check logs.")
@@ -906,7 +939,19 @@ class App(ctk.CTk):
 
     def update_active_app_display_and_log_activity(self):
         if not self.tracking_active:
+            self.after(1000, self.update_active_app_display_and_log_activity)
             return
+
+        # Update time tracking for active goal
+        current_time = dt_datetime.now()
+        if self.globally_active_goal_id and self.current_goal_start_time:
+            if self.last_time_update:
+                minutes_elapsed = (current_time - self.last_time_update).total_seconds() / 60
+                if minutes_elapsed >= 1:  # Only update if at least 1 minute has passed
+                    update_goal_time(self.globally_active_goal_id, int(minutes_elapsed))
+                    self.last_time_update = current_time
+            else:
+                self.last_time_update = current_time
 
         active_info = get_active_application_info()
 

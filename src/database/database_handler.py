@@ -42,6 +42,9 @@ class Goal(Base):
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     project = relationship("Project", back_populates="goals")
     activity_logs = relationship("ActivityLog", back_populates="goal", cascade="all, delete-orphan")
+    target_minutes = Column(Integer, nullable=True)  # Target time in minutes
+    time_spent_minutes = Column(Integer, default=0)  # Time spent in minutes
+    last_tracked_at = Column(DateTime, nullable=True)  # Last time tracking update
 
 class ActivityLog(Base):
     __tablename__ = "activity_logs"
@@ -123,7 +126,7 @@ def get_all_projects(include_archived: bool = False):
         next(db_session_gen, None)
 
 # --- Goal Functions ---
-def add_goal(goal_text: str, project_id: int):
+def add_goal(goal_text: str, project_id: int, target_minutes: int = None):
     if not goal_text.strip():
         print("Goal text cannot be empty.")
         return None
@@ -138,7 +141,13 @@ def add_goal(goal_text: str, project_id: int):
             print(f"Project '{project.name}' is archived. Cannot add goal.")
             return None
 
-        new_goal = Goal(text=goal_text, project_id=project_id)
+        new_goal = Goal(
+            text=goal_text, 
+            project_id=project_id,
+            target_minutes=target_minutes,
+            time_spent_minutes=0,
+            last_tracked_at=None
+        )
         db.add(new_goal)
         db.commit()
         db.refresh(new_goal)
@@ -222,6 +231,31 @@ def get_goal_by_id(goal_id: int):
     db = next(db_session_gen)
     try:
         return db.query(Goal).filter(Goal.id == goal_id).first()
+    finally:
+        next(db_session_gen, None)
+
+def update_goal_time(goal_id: int, minutes_to_add: int):
+    db_session_gen = get_db()
+    db = next(db_session_gen)
+    try:
+        goal = db.query(Goal).filter(Goal.id == goal_id).first()
+        if goal:
+            goal.time_spent_minutes += minutes_to_add
+            goal.last_tracked_at = func.now()
+            
+            # Check if target time is reached
+            if goal.target_minutes and goal.time_spent_minutes >= goal.target_minutes:
+                goal.completed_at = func.now()
+                goal.is_active = False
+            
+            db.commit()
+            db.refresh(goal)
+            return goal
+        return None
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"Error updating goal time: {e}")
+        return None
     finally:
         next(db_session_gen, None)
 
