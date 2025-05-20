@@ -16,7 +16,7 @@ from utils import macos_context # Assuming utils is in PYTHONPATH or relative
 # IMPORTANT: User needs to download the GGUF model and place it here.
 # Example: gemma-2b-it.gguf or similar
 # Model path should be configurable or placed in a known location.
-MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "models", "gemma-3-4b-it-q4_0.gguf")
+MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "models", "gemma-3-1b-it-IQ4_NL.gguf")
 # Create a dummy model file if it doesn't exist for placeholder purposes. 
 # The user MUST replace this with a real model.
 MODELS_DIR = os.path.dirname(MODEL_PATH)
