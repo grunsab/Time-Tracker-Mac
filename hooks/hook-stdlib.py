@@ -1,0 +1,25 @@
+from PyInstaller.utils.hooks import collect_submodules
+
+# Collect all submodules from these standard library packages
+hiddenimports = []
+hiddenimports.extend(collect_submodules('urllib'))
+hiddenimports.extend(collect_submodules('pathlib'))
+hiddenimports.extend(collect_submodules('ipaddress'))
+hiddenimports.extend(collect_submodules('http'))
+hiddenimports.extend(collect_submodules('email'))
+hiddenimports.extend(collect_submodules('json'))
+hiddenimports.extend(collect_submodules('xml'))
+hiddenimports.extend(collect_submodules('xmlrpc'))
+hiddenimports.extend(collect_submodules('html'))
+hiddenimports.extend(collect_submodules('http'))
+hiddenimports.extend(collect_submodules('email'))
+hiddenimports.extend(collect_submodules('json'))
+hiddenimports.extend(collect_submodules('xml'))
+hiddenimports.extend(collect_submodules('xmlrpc'))
+hiddenimports.extend(collect_submodules('html'))
+hiddenimports.extend(collect_submodules('http'))
+hiddenimports.extend(collect_submodules('email'))
+hiddenimports.extend(collect_submodules('json'))
+hiddenimports.extend(collect_submodules('xml'))
+hiddenimports.extend(collect_submodules('xmlrpc'))
+hiddenimports.extend(collect_submodules('html')) 

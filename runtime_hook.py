@@ -1,5 +1,36 @@
 import os
 import sys
+import site
+
+# Add Python standard library path
+python_lib = '/opt/homebrew/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/lib/python3.9'
+sys.path.insert(0, python_lib)
+
+# Add site-packages
+site_packages = os.path.join(python_lib, 'site-packages')
+if os.path.exists(site_packages):
+    site.addsitedir(site_packages)
+
+# Ensure ipaddress module is available
+try:
+    import ipaddress
+except ImportError:
+    ipaddress_path = os.path.join(python_lib, 'ipaddress.py')
+    if os.path.exists(ipaddress_path):
+        with open(ipaddress_path, 'r') as f:
+            exec(f.read())
+
+# Handle pyimod02_importers
+try:
+    import pyimod02_importers
+except ImportError:
+    importers_path = os.path.join(python_lib, 'site-packages/PyInstaller/loader/pyimod02_importers.py')
+    if os.path.exists(importers_path):
+        with open(importers_path, 'r') as f:
+            exec(f.read())
+
+# Set up environment variables
+os.environ['PYTHONPATH'] = os.pathsep.join(sys.path)
 
 # sys.executable is .../YourApp.app/Contents/MacOS/YourApp
 exe_dir = os.path.dirname(sys.executable)
@@ -17,7 +48,6 @@ symlink_path = os.path.join(frameworks_dir, 'Python3')
 # Relative path from Frameworks/Python3 to MacOS/libpython3.9.dylib
 # This should resolve to '../MacOS/libpython3.9.dylib'
 symlink_target = os.path.relpath(dylib_path, frameworks_dir)
-
 
 # Ensure Frameworks directory exists
 if not os.path.exists(frameworks_dir):
