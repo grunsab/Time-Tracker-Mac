@@ -1116,7 +1116,7 @@ class App(ctk.CTk):
                             screenshot_path_auto = capture_active_window_to_temp_file()
                             if screenshot_path_auto:
                                 self.after(0, lambda: self.screenshot_analysis_status_label.configure(text=f"Screenshot Analysis (Auto): Analyzing '{os.path.basename(screenshot_path_auto)}'..."))
-                                analysis_result_auto = self.llm_handler.analyze_screenshot_with_mtmd(screenshot_path_auto, user_goal_for_feedback)
+                                analysis_result_auto = self.llm_handler.analyze_screenshot_with_gemma(screenshot_path_auto, user_goal_for_feedback)
                                 current_visual_analysis_result = analysis_result_auto
                                 display_text_auto = "Screenshot Analysis (Auto): Failed or no result."
                                 if analysis_result_auto:
@@ -1229,7 +1229,7 @@ class App(ctk.CTk):
                 # Run in a separate thread to avoid freezing UI
                 def _analyze_in_thread():
                     try:
-                        analysis_result = self.llm_handler.analyze_screenshot_with_mtmd(screenshot_path, active_goal_text_for_prompt)
+                        analysis_result = self.llm_handler.analyze_screenshot_with_gemma(screenshot_path, active_goal_text_for_prompt)
                         if analysis_result:
                             # Store the result for the LLM loop to pick up
                             self.last_screenshot_analysis_result = analysis_result 

@@ -127,7 +127,7 @@ dmypy.json
 # poetry.lock 
 
 
-
+models/
 llama.cpp/
 .data/productivity_tracker.db
 .DS_Store

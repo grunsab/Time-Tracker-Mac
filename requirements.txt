@@ -8,7 +8,9 @@ pyobjc-framework-Quartz
 pyobjc-framework-ScriptingBridge
 
 # LLM Interaction
-llama-cpp-python
+transformers>=4.53.0
+torch
+accelerate  # For faster model loading
 
 # Database
 SQLAlchemy
