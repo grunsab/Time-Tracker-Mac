@@ -131,3 +131,4 @@ dmypy.json
 llama.cpp/
 .data/productivity_tracker.db
 .DS_Store
+/models
